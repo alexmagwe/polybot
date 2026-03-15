@@ -1,0 +1,26 @@
+# Environment variables - NEVER commit these
+.env
+*.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Trading data (contains sensitive info)
+paper_trades.json
+initial_signals.json
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
