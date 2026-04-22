@@ -18,15 +18,15 @@ INITIAL_CAPITAL = 100.0
 MAX_POSITION_SIZE = 0.10     # Max 10% of capital per trade
 MIN_POSITION_SIZE = 1.0      # Minimum $1 per trade
 MAX_KELLY_FRACTION = 0.25    # Cap Kelly at 25% (quarter-Kelly for safety)
-MIN_EDGE = 0.07              # Minimum 7% edge to consider a trade
-MAX_CONCURRENT_POSITIONS = 3
+MIN_EDGE = 0.03              # Minimum 3% edge to consider a trade (lowered for live markets)
+MAX_CONCURRENT_POSITIONS = 5
 SLIPPAGE_ESTIMATE = 0.005    # 0.5% estimated slippage
 
 # Strategy parameters
-INEFFICIENCY_THRESHOLD = 0.05  # 5% mispricing threshold
-VOLUME_MIN_THRESHOLD = 1000    # Minimum $1000 daily volume
+INEFFICIENCY_THRESHOLD = 0.03  # 3% mispricing threshold (lowered for live markets)
+VOLUME_MIN_THRESHOLD = 500     # Minimum $500 daily volume (lowered to catch more markets)
 LOOKBACK_DAYS = 30             # Days of history for backtesting
-CROSS_MARKET_ARB_THRESHOLD = 0.10  # 10% divergence between platforms to trigger arb
+CROSS_MARKET_ARB_THRESHOLD = 0.05  # 5% divergence between platforms to trigger arb (lowered)
 
 # --- Market Category Filtering ---
 # ONLY trade in these categories. Sports are excluded entirely.

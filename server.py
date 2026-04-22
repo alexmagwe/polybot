@@ -11,6 +11,10 @@ import os
 import sys
 import threading
 from datetime import datetime, timezone
+from dotenv import load_dotenv
+
+# Load .env file (for Azure/VPS deployment)
+load_dotenv()
 
 from flask import Flask, jsonify
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -46,6 +50,7 @@ def run_scan():
     try:
         from paper_trader import run_paper_trading
         from live_report import generate_live_report
+        from notifier import notify_signal
 
         summary = run_paper_trading()
 
@@ -62,11 +67,18 @@ def run_scan():
             last_run["summary"] = summary
             last_run["error"] = None
 
+        signals_found = summary.get("signals_found", 0)
         logger.info(
             "Scan complete: %d signals, %d trades",
-            summary.get("signals_found", 0),
+            signals_found,
             summary.get("trades_executed", 0),
         )
+
+        # Send Telegram alerts for HIGH confidence signals
+        for signal in summary.get("signals", []):
+            if signal.get("confidence") == "HIGH" and signal.get("edge", 0) >= 0.03:
+                notify_signal(signal)
+
     except Exception as e:
         logger.exception("Scan failed: %s", e)
         with run_lock:
@@ -133,6 +145,13 @@ if __name__ == "__main__":
     logger.info("=" * 50)
     logger.info("Polymarket Bot Server starting up")
     logger.info("=" * 50)
+
+    # Send startup notification
+    try:
+        from notifier import notify_startup
+        notify_startup()
+    except Exception:
+        pass
 
     # Run first scan on startup
     logger.info("Running initial scan on startup...")
