@@ -34,7 +34,7 @@ echo "[3/6] Setting up Python environment..."
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip -q
-pip install flask apscheduler requests numpy -q
+pip install -r requirements.txt -q
 
 # 4. Create .env file
 echo "[4/6] Creating config..."

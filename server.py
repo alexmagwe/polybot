@@ -19,8 +19,8 @@ load_dotenv()
 from flask import Flask, jsonify
 from apscheduler.schedulers.background import BackgroundScheduler
 
-# Ensure the bot directory is on the path
-BOT_DIR = "/workspace/group/polymarket-bot"
+# Ensure the bot directory is on the path — auto-detect from server.py location
+BOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BOT_DIR)
 os.chdir(BOT_DIR)
 
