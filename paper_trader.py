@@ -18,7 +18,7 @@ from api_client import PolymarketClient, classify_market
 from signals import SignalGenerator, Signal
 
 
-STATE_FILE = "/workspace/group/polymarket-bot/paper_trades.json"
+STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "paper_trades.json")
 
 # Paper trading fee structure (matches config)
 PAPER_TAKER_FEE = config.TAKER_FEE_RATE       # 2%

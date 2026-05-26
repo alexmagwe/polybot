@@ -7,10 +7,13 @@ Excludes: Sports, Entertainment.
 
 import argparse
 import json
+import os
 
 import numpy as np
 
 import config
+
+BOT_DIR = os.path.dirname(os.path.abspath(__file__))
 from backtester import Backtester, generate_simulated_markets
 from signals import SignalGenerator
 from report import generate_report
@@ -78,7 +81,7 @@ def run_backtest():
 
     # Step 4: Generate report
     print("\n[4/4] Generating performance report...")
-    report_path = "/workspace/group/polymarket-bot/backtest_report.md"
+    report_path = os.path.join(BOT_DIR, "backtest_report.md")
     report = generate_report(result, filepath=report_path)
     print(f"  Report saved to: {report_path}")
 
@@ -97,7 +100,7 @@ def run_paper():
     summary = run_paper_trading()
 
     # Save initial signals
-    signals_path = "/workspace/group/polymarket-bot/initial_signals.json"
+    signals_path = os.path.join(BOT_DIR, "initial_signals.json")
     with open(signals_path, "w") as f:
         json.dump(summary, f, indent=2)
     print(f"\nSignals saved to: {signals_path}")
