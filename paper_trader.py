@@ -10,7 +10,6 @@ import os
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 
-import numpy as np
 import requests
 
 import config
@@ -19,6 +18,8 @@ from signals import SignalGenerator, Signal
 
 
 STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "paper_trades.json")
+HISTORY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "market_history.json")
+MAX_HISTORY_POINTS = 30  # ~15 hours of history at 30-min scan interval
 
 # Paper trading fee structure (matches config)
 PAPER_TAKER_FEE = config.TAKER_FEE_RATE       # 2%
@@ -116,6 +117,23 @@ def save_portfolio(portfolio: PaperPortfolio):
         json.dump(portfolio.to_dict(), f, indent=2)
 
 
+def load_market_history() -> dict:
+    """Load per-market price/volume history accumulated across scans."""
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r") as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            pass
+    return {}
+
+
+def save_market_history(history: dict):
+    """Save per-market price/volume history to disk."""
+    with open(HISTORY_FILE, "w") as f:
+        json.dump(history, f)
+
+
 def fetch_live_markets() -> tuple[list[dict], str]:
     """Fetch live markets from Polymarket Gamma API.
 
@@ -159,7 +177,9 @@ def fetch_live_markets() -> tuple[list[dict], str]:
         if all_raw:
             print(f"[Paper] Fetched {len(all_raw)} politics/macro markets from Polymarket")
             client = PolymarketClient()
-            transformed = _transform_live_markets(all_raw, client)
+            history = load_market_history()
+            transformed, updated_history = _transform_live_markets(all_raw, client, history)
+            save_market_history(updated_history)
             if transformed:
                 return transformed, "live"
             print("[Paper] No tradeable markets after filtering (prices too extreme)")
@@ -170,9 +190,19 @@ def fetch_live_markets() -> tuple[list[dict], str]:
         return [], "error"
 
 
-def _transform_live_markets(raw_markets: list[dict], client: PolymarketClient) -> list[dict]:
-    """Transform raw Gamma API market data into the format signals.py expects."""
+def _transform_live_markets(
+    raw_markets: list[dict], client: PolymarketClient, history: dict
+) -> tuple[list[dict], dict]:
+    """Transform raw Gamma API market data into the format signals.py expects.
+
+    Appends each market's current price/volume snapshot to `history` (keyed by
+    market_id, accumulated across scans) and uses the real accumulated series
+    for trend/momentum detection instead of synthetic noise. Returns
+    (markets_data, updated_history); updated_history only retains markets seen
+    in this scan, so it stays bounded as markets close and new ones appear.
+    """
     markets_data = []
+    updated_history = {}
 
     for m in raw_markets:
         title = m.get("question", m.get("title", ""))
@@ -219,23 +249,30 @@ def _transform_live_markets(raw_markets: list[dict], client: PolymarketClient) -
         # Volume
         volume = float(m.get("volume", m.get("volumeNum", 0)) or 0)
 
-        # Build a synthetic price history from current price (we only have a snapshot)
-        # Add small random noise to simulate recent history
-        rng = np.random.RandomState(hash(title) % (2**31))
-        noise = rng.normal(0, 0.01, 15)
-        price_history = [float(np.clip(price + n, 0.02, 0.98)) for n in noise]
-        price_history[-1] = price  # Most recent is actual price
+        market_id = m.get("conditionId", m.get("condition_id", str(hash(title))))
 
-        vol_history = [max(100, volume * (0.8 + rng.random() * 0.4)) for _ in range(15)]
+        # Accumulate real price/volume snapshots across scans (bounded rolling window)
+        prior = history.get(market_id, {"prices": [], "volumes": []})
+        price_history = (prior["prices"] + [price])[-MAX_HISTORY_POINTS:]
+        vol_history = (prior["volumes"] + [volume])[-MAX_HISTORY_POINTS:]
+        updated_history[market_id] = {"prices": price_history, "volumes": vol_history}
+
+        # Volume ratio: current volume vs. average of prior observed volumes
+        prior_volumes = vol_history[:-1]
+        volume_ratio = (
+            volume / (sum(prior_volumes) / len(prior_volumes))
+            if prior_volumes and sum(prior_volumes) > 0
+            else 1.0
+        )
 
         # Estimate spread (wider for lower volume)
         spread = 0.03 if volume > 5000 else 0.05 if volume > 1000 else 0.08
 
         markets_data.append({
-            "market_id": m.get("conditionId", m.get("condition_id", str(hash(title)))),
+            "market_id": market_id,
             "market_name": title,
             "market_price": price,
-            "volume_ratio": 1.0,  # No historical baseline for live
+            "volume_ratio": volume_ratio,
             "price_history": price_history,
             "spread": spread,
             "category": category,
@@ -244,7 +281,7 @@ def _transform_live_markets(raw_markets: list[dict], client: PolymarketClient) -
             "volume": volume,
         })
 
-    return markets_data
+    return markets_data, updated_history
 
 
 

@@ -17,6 +17,7 @@ env/
 # Trading data (contains sensitive info)
 paper_trades.json
 initial_signals.json
+market_history.json
 
 # Logs
 *.log
